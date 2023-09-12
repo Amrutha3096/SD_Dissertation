@@ -1,0 +1,258 @@
+
+ %% Section differntiating plotting single theta, multiple sigma in a single figure (comparison)
+
+ function PlotR3BP(G_var)
+    % Simulation time span (start and end times)
+    t_span = [0,1];% Restricted Three body Problem in Forward
+    mu=G_var.Constants.mu;
+
+    % Set integration options
+    options = G_var.IntFunc.ODEoptions;
+    cr3bp = G_var.IntFunc.EOM;   
+
+    initial_state= [-0.5; 0.3; 0; 0.8; 0; 0];
+    
+    % Solve the ODE using ode45
+    [t, trajectory] = ode45(cr3bp, t_span, initial_state, options);
+
+    % Extract positions from the trajectory
+    x = trajectory(:, 1); 
+    y = trajectory(:, 2);
+    z = trajectory(:, 3);
+
+    figure(1)
+    plot3(x,y,z);
+    hold on
+    scatter(-mu,0,100, 'b', 'filled', 'DisplayName', 'Earth');
+    scatter(1-mu,0,25, [0.5, 0.5, 0.5], 'filled', 'DisplayName', 'Moon');
+    xlabel('X');
+    ylabel('Y');
+    zlabel('Z');
+    title('Trajectory in Restricted Three-Body Problem Forward Direction');
+    legend;
+    grid on;
+    hold off
+
+%% Restricted three Body Problem in Backwards
+    t_span = [1,0];% Restricted Three body Problem in Backward   
+    
+    % Solve the ODE using ode45
+    [t, trajectory] = ode45(cr3bp, t_span, initial_state, options);
+
+    % Extract positions from the trajectory
+    x = trajectory(:, 1); 
+    y = trajectory(:, 2);
+    z = trajectory(:, 3);
+
+    figure(2)
+
+    plot3(x,y,z);
+    hold on
+    scatter(-mu,0,100, 'b', 'filled', 'DisplayName', 'Earth');
+    scatter(1-mu,0,25, [0.5, 0.5, 0.5], 'filled', 'DisplayName', 'Moon');
+    xlabel('X');
+    ylabel('Y');
+    zlabel('Z');
+    title('Trajectory in Restricted Three-Body Problem in Backward Direction');
+    legend;
+    grid on;
+    hold off
+
+    %% Iterate over different zigma values or velocities
+    
+    figure(3)
+
+    initial_angle=deg2rad(0);
+    scale_angle=deg2rad(45);
+    final_angle=deg2rad(360);    
+    k= (final_angle-initial_angle)/scale_angle;
+    r=1;
+
+    for zigma=initial_angle:scale_angle:final_angle
+
+        V = r*[cos(zigma); sin(zigma); 0];
+        initial_state= [-0.5; 0.3; 0; V(1,1); V(2,1); V(3,1)];
+
+        % Solve the ODE using ode45
+        [t, trajectory] = ode45(cr3bp, t_span, initial_state, options);
+
+        % Extract positions from the trajectory
+        x = trajectory(:, 1);
+        y = trajectory(:, 2);
+        z = trajectory(:, 3);
+       
+        plot3(x,y,z);
+        hold on
+     end
+    scatter(-mu,0,100, 'b', 'filled', 'DisplayName', 'Earth');
+    scatter(1-mu,0,25, [0.5, 0.5, 0.5], 'filled', 'DisplayName', 'Moon');
+    xlabel('X');
+    ylabel('Y');
+    zlabel('Z');
+    title('Trajectory of Restricted Three-Body Problem for different values of velocity');
+    legend;
+    grid on;
+    hold off
+
+    %%Optimisation
+
+    %Calculate distances between Earth and each point on the trajectory
+%     distance = @(a, b, c) sqrt((a-mu)^2 + b^2 + c^2);
+    distance = @(point1, point2) norm(point1 - point2);
+    
+    %To find minimum distance and corresponding linear index
+    findMinDistance = @(d) min(d, [], 'all', 'linear');
+
+    min_d=zeros(k,3);
+    n=1;
+    disp(min_d);
+
+    figure(4);
+
+    for zigma=initial_angle:scale_angle:final_angle
+        r=1;
+        V = r*[cos(zigma); sin(zigma); 0];
+        initial_state = [-0.5; 0.3; 0; V(1,1); V(2,1); V(3,1)];
+
+        % Solve the ODE using ode45
+        [t, trajectory] = ode45(cr3bp, t_span, initial_state, options);
+
+        % Extract positions from the trajectory
+        x = trajectory(:, 1);
+        y = trajectory(:, 2);
+        z = trajectory(:, 3);
+        
+        %dist_Array = arrayfun(distance, x, y, z);
+        dist_Array= arrayfun(@(i) distance([x(i), y(i), z(i)],[-mu,0,0]), 1:length(x));
+        plot(t,dist_Array);
+        
+        [M,I]= findMinDistance(dist_Array);        
+        min_d(n,:)=min_d(n,:)+[[M,I],rad2deg(zigma)];
+
+        if n<k
+            n=n+1;
+        end   
+        hold on;
+    end
+    xlabel('time');
+    ylabel('distance');
+    title('Distance V/s Time');
+    legend;
+    hold off
+    disp(min_d);
+
+    required_output=sortrows(min_d, 1);
+    required_distance=required_output(1,1);
+    required_index=required_output(1,2);
+    required_angle=required_output(1,3);
+
+    disp (required_output);
+    disp(required_distance);
+    disp(required_index);
+    disp(required_angle);
+
+    figure(5)
+    V = r*[cos(required_angle); sin(required_angle); 0];
+    initial_state= [-0.5; 0.3; 0; V(1,1); V(2,1); V(3,1)];
+    j=required_index;
+
+    % Solve the ODE using ode45
+    [t, trajectory] = ode45(cr3bp, t_span, initial_state, options);
+
+    % Extract positions from the trajectory
+    x = trajectory(:, 1);
+    y = trajectory(:, 2);
+    z = trajectory(:, 3);
+    vx = trajectory(:, 4);
+    vy = trajectory(:, 5);
+    vz = trajectory(:, 6);
+    
+
+    X=trajectory(j,1);
+    Y=trajectory(j,2);
+    Z=trajectory(j,3);
+    Vx=trajectory(j,4);
+    Vy=trajectory(j,5);
+    Vz=trajectory(j,6);
+
+    % The required position and velocity values at minimum distance
+    S=[X;Y;Z;Vx;Vy;Vz];
+    disp(S);
+
+    plot3(x,y,z);
+    hold on
+    scatter(-mu,0,100, 'b', 'filled', 'DisplayName', 'Earth');
+    scatter(1-mu,0,25, [0.5, 0.5, 0.5], 'filled', 'DisplayName', 'Moon');
+    xlabel('X');
+    ylabel('Y');
+    zlabel('Z');
+    title('Finalised Orbit');
+    legend;
+    grid on;
+    hold off
+
+    figure(6)
+
+    % Plotting Trajectory for restricted Three body problem in ECI Frame.
+    % The orbital elements are randomly chosen
+
+    Omega=deg2rad(30);
+    incl=deg2rad(20);
+    w=deg2rad(28);
+    rot_Omega_3 = [cos(-Omega), sin(-Omega), 0; -sin(-Omega), cos(-Omega), 0; 0, 0, 1];
+    rot_incl_1 = [1, 0, 0 ; 0, cos(-incl), sin(-incl); 0, -sin(-incl), cos(-incl)];
+    rot_w_3= [cos(-w), sin(-w), 0; -sin(-w), cos(-w), 0; 0, 0, 1];
+    dir_cosm= rot_Omega_3*rot_incl_1*rot_w_3;
+
+    % Initialize empty matrix for output_matrix
+    output_matrix_r = zeros(length(trajectory), 3);
+    output_matrix_v = zeros(length(trajectory), 3);
+
+    for i=1:length(trajectory)
+        output_matrix_r(i, :) = (dir_cosm * [x(i); y(i); z(i)])';
+    end
+
+    for i=1:length(trajectory)
+        output_matrix_v(i, :) = (dir_cosm * [vx(i); vy(i); vz(i)])';
+    end
+
+    output_matrix=[output_matrix_r,output_matrix_v];
+
+    % Extracting absolute positions
+    absX=output_matrix(:,1);
+    absY=output_matrix(:,2);
+    absZ=output_matrix(:,3);
+
+
+    X1=output_matrix(j,1);
+    Y1=output_matrix(j,2);
+    Z1=output_matrix(j,3);
+    Vx1=output_matrix(j,4);
+    Vy1=output_matrix(j,5);
+    Vz1=output_matrix(j,6);
+
+    % The required position and velocity values at minimum distance
+    S1=[X1;Y1;Z1;Vx1;Vy1;Vz1];
+    disp(S1);
+ 
+    plot3(absX,absY,absZ);
+    hold on
+    scatter(-mu,0,100, 'b', 'filled', 'DisplayName', 'Earth');
+    scatter(1-mu,0,25, [0.5, 0.5, 0.5], 'filled', 'DisplayName', 'Moon');
+    xlabel('X');
+    ylabel('Y');
+    zlabel('Z');
+    title('Trajectory in ECI frame');
+    legend;
+    grid on;
+    hold off
+
+ end
+
+function rad = deg2rad(deg)
+    rad = deg * pi / 180;
+end
+
+function deg = rad2deg(rad)
+    deg= rad * 180/pi;
+end
